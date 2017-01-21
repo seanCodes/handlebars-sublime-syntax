@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>scope</key>
+	<string>text.html.handlebars</string>
+	<key>settings</key>
+	<dict>
+		<key>decreaseIndentPattern</key>
+		<string>\s*{{{?~?(/[^~}]*|\s*else\s*)~?}?}}\s*</string>
+		<key>increaseIndentPattern</key>
+		<string>\s*{{{?~?(#[^~}]*|\s*else\s*)~?}?}}\s*$</string>
+	</dict>
+</dict>
+</plist>

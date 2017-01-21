@@ -1,0 +1,791 @@
+|| SYNTAX TEST "HTMLHandlebars.sublime-syntax"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <title>Test</title>
+</head>
+<body>
+
+
+
+
+
+<!-- COMMENTS -->
+
+
+  {{! Block Comment }}}
+||^^^^^^^^^^^^^^^^^^^^    comment.block
+||<-                    - punctuation - comment
+||^^^                     punctuation.definition.comment.block.begin
+||   ^                  - punctuation
+||                 ^    - punctuation
+||                  ^^    punctuation.definition.comment.block.end
+||                    ^ - punctuation - comment
+
+  {{!
+||<-   - punctuation - comment
+||^^^    punctuation.definition.comment.block.begin
+||   ^ - punctuation.definition.comment.block foo bar
+||^      comment.block
+    Block Comment Multiline
+||^      comment.block (Still a comment?)
+  }}}
+||<-   - punctuation
+||^^     punctuation.definition.comment.block.end
+||  ^  - punctuation - comment
+
+
+
+  {{!-- Explicit Block Comment --}}}
+||^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    comment.block.explicit
+||<-                                 - punctuation - comment
+||^^^^^                                punctuation.definition.comment.block.explicit.begin
+||     ^                             - punctuation
+||                            ^      - punctuation
+||                             ^^^^    punctuation.definition.comment.block.explicit.end
+||                                 ^ - punctuation - comment
+||
+
+  {{!-- {{{{tag}}}} {{! Comment }} <html tag="true"></html> --}}
+||^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ comment.block.explicit
+
+  {{!--
+||<-     - punctuation - comment
+||^^^^^    punctuation.definition.comment.block.explicit.begin
+||     ^ - punctuation
+||^        comment.block.explicit
+    {{tag}}
+||^        comment.block.explicit
+  --}}}
+||^^^^     punctuation.definition.comment.block.explicit.end
+||<-     - punctuation
+||    ^  - punctuation - comment
+
+
+
+
+
+<!-- TAGS -->
+
+  {{ foo }}
+||^^^^^^^^^    meta.tag.template (TODO: THIS IS AN EXPRESSION)
+||<-         - meta.tag.template
+||         ^ - meta.tag.template
+||^^    punctuation.definition.tag.template.begin
+||  ^ - punctuation - variable
+||   ^^^    variable.other.readwrite.path (TODO: THIS IS AN IDENTIFIER, AND ALSO A PROPERTY)
+||      ^ - punctuation - variable
+||       ^^    punctuation.definition.tag.template.end
+
+  {{ . / foo }}
+||  ^     - meta.path-traversal
+||   ^^^^   meta.path-traversal
+||    ^   - meta.path-traversal meta.path-traversal (PAST BUG)
+||      ^     - variable
+||       ^^^    variable.other.readwrite.path - meta.path-traversal
+||          ^ - variable
+  {{ .. / foo }}
+||  ^      - meta.path-traversal
+||   ^^^^^   meta.path-traversal
+||       ^     - variable
+||        ^^^    variable.other.readwrite.path - meta.path-traversal
+||           ^ - variable
+  {{ .. / . / foo }}
+||  ^          - meta.path-traversal
+||   ^^^^^^^^   meta.path-traversal
+||           ^     - variable
+||            ^^^    variable.other.readwrite.path - meta.path-traversal
+||               ^ - variable
+
+
+  {{ foo / bar }}
+||^^^^^^^^^^^^^^^    meta.tag.template
+||  ^     - variable
+||   ^^^    variable.other.readwrite.path
+||      ^ - variable
+||      ^^^    meta.path-traversal (TODO: CALL THIS OUT AS DEPRECATED)
+||         ^ - meta.path-traversal
+||         ^^^    variable.other.readwrite.path
+||            ^ - variable
+  {{ foo . bar }} {{! EDGE CASE }}
+||  ^     - entity
+||   ^^^    entity.name.function.helper
+||      ^ - entity - meta.path-traversal
+||       ^ meta.path-traversal
+||        ^     - variable - meta.path-traversal
+||         ^^^    variable.other.readwrite.path
+||            ^ - variable
+  {{! Path/Segment Literals }}
+  {{ foo .bar .[baz] ."baz" .'baz' }}
+||  ^                               - variable
+||   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    variable.other.readwrite.path
+||                                ^ - variable
+||             ^^^^^^^^^^^^^^^^^^^    meta.path.segment-literal
+||             ^                    - variable.other.readwrite.path.path-literal
+||              ^^^                   variable.other.readwrite.path.path-literal
+||                 ^^^^             - variable.other.readwrite.path.path-literal
+||                    ^^^^^           string.quoted.double
+||                     ^^^            variable.other.readwrite.path.path-literal
+||                        ^^^^      - variable.other.readwrite.path.path-literal
+||                           ^^^^^    string.quoted.single
+||                            ^^^     variable.other.readwrite.path.path-literal
+||                             ^    - variable.other.readwrite.path.path-literal variable.other.readwrite.path.path-literal (PAST BUG)
+  {{ foo.[10].bar }}
+||^^^^^^^^^^^^^^^^^^ meta.tag.template
+||   ^^^^^^^^^^^^ variable.other.readwrite.path
+||        ^^ constant.numeric
+  {{ this }}
+||  ^      - variable
+||   ^^^^    variable.language.this
+||       ^ - variable
+  {{ this / foo }}
+||  ^      - variable
+||   ^^^^    variable.language.this
+||       ^ - variable
+||       ^^^    meta.path-traversal
+||          ^ - meta.path-traversal
+||          ^^^ variable.other.readwrite.path
+||             ^ - variable
+  {{ this / .. / . / foo / [foo] / this / foo .bar .[baz] }}
+||       ^^^^^^^^^^^^   meta.path-traversal
+||       ^            - variable
+||                  ^ - variable
+||            ^ - meta.path-traversal meta.path-traversal (PAST BUG)
+||                   ^^^      variable.other.readwrite.path
+||                      ^^^ - variable
+||                         ^^^^^      variable.other.readwrite.path
+||                              ^^^ - variable
+||                                 ^^^^      variable.language.this
+||                                     ^^^ - variable
+||                                        ^^^^^^^^^^^^^^^    variable
+||                                                       ^ - variable - punctuation
+
+
+
+
+
+<!-- DATA VARIABLES (BUILT-IN) -->
+
+  {{ @this }}
+||  ^       - variable - constant
+||   ^^^^^    variable.language.data
+||    ^^^^    variable.language.data.keyword.this
+||        ^ - variable
+||   ^    constant.character.data-variable
+||    ^ - constant
+  {{ @first }}
+||  ^        - variable - constant
+||    ^^^^^    variable.language.data.keyword.first
+||         ^ - variable
+  {{ @index }}
+||  ^        - variable - constant
+||    ^^^^^    variable.language.data.keyword.index
+||         ^ - variable
+  {{ @key }}
+||  ^      - variable - constant
+||    ^^^    variable.language.data.keyword.key
+||       ^ - variable
+  {{ @last }}
+||  ^       - variable - constant
+||    ^^^^    variable.language.data.keyword.last
+||        ^ - variable
+  {{ @root }}
+||  ^       - variable - constant
+||    ^^^^    variable.language.data.keyword.root
+||        ^ - variable
+  {{ @partial-block }}
+||  ^                - variable - constant
+||    ^^^^^^^^^^^^^    variable.language.data.keyword.partial-block
+||                 ^ - variable
+
+
+
+
+
+  <!-- HELPERS -->
+  <!-- NOTE: Helpers are also expressions. Helper calls are also identifiers. Helpers are passed Parameters. -->
+
+  {{ foo bar }}
+||^^^^^^^^^^^^^    meta.tag.template.singleline (TODO: THIS IS AN EXPRESSION)
+||<-             - meta.tag.template
+||             ^ - meta.tag.template
+||^^ punctuation.definition.tag.template.begin
+||  ^     - entity - punctuation
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - variable
+||       ^^^ variable.other.readwrite.path (TODO: THIS IS AN IDENTIFIER, AND ALSO A PROPERTY)
+||          ^   - punctuation - variable
+||           ^^   punctuation.definition.tag.template.end
+  {{ foo bar "baz" 'baz' -12.345 true false }}
+||^^    punctuation.definition.tag.template.begin
+||  ^ - punctuation - entity
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - variable
+||       ^^^    variable.other.readwrite.path
+||          ^ - variable - string
+||           ^^^^^    string.quoted.double
+||                ^ - string
+||                 ^^^^^    string.quoted.single
+||                      ^ - string - variable - constant
+||                       ^^^^^^^    variable.parameter.helper constant.numeric (TODO: WHAT KIND OF VARIABLE?)
+||                              ^ - variable - constant
+||                               ^^^^    variable.parameter.helper constant.language.boolean.true (TODO: WHAT KIND OF VARIABLE?)
+||                                   ^ - variable - constant
+||                                    ^^^^^    variable.parameter.helper constant.language.boolean.false (TODO: WHAT KIND OF VARIABLE?)
+||                                         ^ - variable - constant - punctuation
+||                                          ^^   punctuation.definition.tag.template.end
+||^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    meta.tag.template.singleline (TODO: THIS IS AN EXPRESSION)
+||<-                                            - meta.tag.template
+||                                            ^ - meta.tag.template
+  {{ foo .bar .[baz] ."baz" .'baz' baz }} {{! EDGE CASE }}
+||  ^                               - entity
+||   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    entity.name.function.helper
+||                                ^ - entity - variable
+||                                 ^^^         variable.other.readwrite.path
+||                                    ^      - variable
+
+
+  <!-- HELPERS: TRICKY SYNTAXES -->
+
+  {{ foo . }}
+||   ^^^    entity.name.function.helper
+||      ^ - entity - meta.path-traversal
+||       ^    meta.path-traversal
+||        ^ - meta.path-traversal
+  {{ foo . "bar" }}
+||  ^     - entity - punctuation
+||   ^^^    entity.name.function.helper
+||      ^ - entity - meta.path-traversal
+||       ^    meta.path-traversal
+||        ^ - meta.path-traversal - string
+||         ^^^^^    string.quoted.double
+||              ^ - string - punctuation
+  {{ foo . / bar }}
+||   ^^^    entity.name.function.helper
+||      ^ - entity - meta.path-traversal
+||       ^^^^ meta.path-traversal
+||           ^^^    variable.other.readwrite.path - meta.path-traversal
+||              ^ - variable - punctuation
+  {{ foo .. / bar }}
+||   ^^^    entity.name.function.helper
+||      ^ - entity - meta.path-traversal
+||       ^^^^^ meta.path-traversal
+||            ^^^    variable.other.readwrite.path - meta.path-traversal
+||               ^ - variable - punctuation
+  {{ foo bar .baz }}
+||^^^^^^^^^^^^^^^^^^    meta.tag.template.singleline (TODO: THIS IS AN EXPRESSION)
+||<-                  - meta.tag.template
+||                  ^ - meta.tag.template
+||^^ punctuation.definition.tag.template.begin
+||  ^     - entity - punctuation
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - variable
+||       ^^^^^^^^ variable.other.readwrite.path (TODO: THIS IS AN IDENTIFIER, AND ALSO A PROPERTY)
+||               ^   - punctuation - variable
+||                ^^   punctuation.definition.tag.template.end
+  {{ lookup .foo }} {{! EDGE CASE: _Not_ a helper. }}
+||  ^             - variable - punctuation
+||   ^^^^^^^^^^^    variable.other.readwrite.path
+||              ^ - variable - punctuation
+
+
+  <!-- HELPERS: DOTTED/SLASHED -->
+
+  {{ foo.bar baz }}
+||   ^^^^^^^    entity.name.function.helper
+||          ^ - entity - variable
+||           ^^^ variable.other.readwrite.path
+  {{ foo/bar baz }}
+||   ^^^^^^^    entity.name.function.helper (TODO: CALL THIS OUT AS DEPRECATED)
+||          ^ - entity - variable
+||           ^^^ variable.other.readwrite.path
+  {{ foo .bar baz }}
+||   ^^^^^^^^    entity.name.function.helper
+||           ^ - entity - variable
+||            ^^^ variable.other.readwrite.path
+  {{ foo /bar baz }}
+||   ^^^^^^^^    entity.name.function.helper (TODO: CALL THIS OUT AS DEPRECATED)
+||           ^ - entity - variable
+||            ^^^ variable.other.readwrite.path
+  {{ foo / bar baz }}
+||   ^^^^^^^^^    entity.name.function.helper (TODO: CALL THIS OUT AS DEPRECATED)
+||            ^ - entity - variable
+||             ^^^ variable.other.readwrite.path
+
+
+  <!-- HELPERS W/ DATA VARS -->
+
+  {{ foo @this }}
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - constant - variable
+||       ^^^^^ variable.language.data
+||       ^    constant.character.data-variable - variable.language.data.keyword.this
+||        ^ - constant
+||        ^^^^ variable.language.data.keyword.this
+  {{ foo @this . bar }}
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - constant - variable
+||       ^^^^^    variable.language.data
+||            ^   - meta.path-traversal - variable
+||             ^    meta.path-traversal
+||              ^ - meta.path-traversal - variable
+||               ^^^ variable.other.readwrite.path
+  {{ foo @this .bar }}
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - constant - variable
+||       ^^^^^^^^^^ variable.language.data
+||        ^^^^    variable.language.data.keyword.this
+||            ^ - variable.language.data.keyword.this
+||            ^^^^^ variable.other.readwrite.path
+||                 ^ - variable
+  {{ foo @this / bar }}
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - constant - variable
+||       ^^^^^^^^^^^ variable.language.data
+||        ^^^^    variable.language.data.keyword.this
+||            ^ - variable.language.data.keyword.this
+||            ^^^ meta.path-traversal - variable.other.readwrite.path
+||               ^^^ variable.other.readwrite.path
+||                  ^ - variable
+  {{ foo .. / @this }}
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - constant - variable
+||       ^^^^^ meta.path-traversal
+||           ^    - variable - constant
+||            ^^^^^ variable.language.data
+||            ^    constant.character.data-variable - variable.language.data.keyword.this
+||             ^ - constant
+||             ^^^^ variable.language.data.keyword.this
+||                 ^ - variable
+
+
+  <!-- HELPERS W/ HASH ARGUMENTS -->
+
+  {{ foo bar baz="quux" }}
+||^^^^^^^^^^^^^^^^^^^^^^^^    meta.tag.template.singleline (TODO: THIS IS AN EXPRESSION)
+||<-                        - meta.tag.template
+||                        ^ - meta.tag.template
+||^^    punctuation.definition.tag.template.begin
+||  ^ - punctuation - entity
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - variable
+||       ^^^    variable.other.readwrite.path
+||          ^ - variable - meta.argument
+||           ^^^^^^^^^^ meta.argument.key-value
+||           ^^^    meta.argument.key-value.key variable.parameter.helper
+||              ^ - meta.argument.key-value.key - variable - meta.argument.key-value.value - punctuation.definition - string
+||              ^ punctuation.separator.key-value
+||               ^^^^^^    meta.argument.key-value.value string.quoted.double
+||                     ^ - meta.argument - string - punctuation
+||                      ^^ punctuation.definition.tag.template.end
+  {{ foo bar=baz }}
+||       ^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^ meta.argument.key-value.value
+  {{ foo bar=baz.quux }}
+||       ^^^^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^^^^^^ meta.argument.key-value.value
+  {{ foo bar=baz/quux }}
+||       ^^^^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^^^^^^ meta.argument.key-value.value
+||           ^^^ variable.other.readwrite.path - meta.path-traversal
+||              ^ meta.path-traversal - variable
+||               ^^^^    variable.other.readwrite.path - meta.path-traversal
+||                   ^ - variable
+  {{ foo bar=./baz }}
+||       ^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^^^ meta.argument.key-value.value
+||           ^^ meta.argument.key-value.value
+||             ^^^    variable.other.readwrite.path
+||                ^ - variable
+  {{ foo bar=../baz }}
+||       ^^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^^^^ meta.argument.key-value.value
+||              ^^^    variable.other.readwrite.path
+||                 ^ - variable
+  {{ foo bar="baz" }}
+||       ^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation.separator.key-value
+||           ^^^^^ meta.argument.key-value.value string.quoted.double
+||                ^ - string
+  {{ foo bar='baz' }}
+||       ^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation.separator.key-value
+||           ^^^^^ meta.argument.key-value.value string.quoted.single
+||                ^ - string
+  {{ foo bar=@index }}
+||       ^^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^^^^ meta.argument.key-value.value
+||            ^^^^^    variable.language.data.keyword.index
+||                 ^ - variable
+  {{ foo bar=-1.2 }}
+||       ^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^^ meta.argument.key-value.value constant.numeric
+||               ^ - constant
+  {{ foo bar=true }}
+||       ^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation
+||           ^^^^ meta.argument.key-value.value constant.language.boolean.true
+||               ^ - constant
+  {{ foo bar=(baz quux) }}
+||       ^^^^^^^^^^^^^^ meta.argument.key-value
+||       ^^^ meta.argument.key-value.key
+||         ^   - punctuation
+||          ^    punctuation.separator.key-value - meta.argument.key-value.key
+||           ^ - punctuation.separator.key-value
+||           ^^^^^^^^^^ meta.argument.key-value.value meta.subexpression
+||                     ^ - meta.subexpression
+  {{ foo (bar "baz") quux }}
+||^^^^^^^^^^^^^^^^^^^^^^^^^^    meta.tag.template.singleline (TODO: THIS IS AN EXPRESSION)
+||<-                          - meta.tag.template
+||                          ^ - meta.tag.template
+||^^ punctuation.definition.tag.template.begin
+||  ^     - entity - punctuation
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - meta.subexpression
+||       ^^^^^^^^^^^ meta.subexpression
+||       ^ punctuation.definition.subexpression.begin
+||       ^     - entity
+||        ^^^    entity.name.function.helper
+||           ^ - entity - string
+||            ^^^^^    string.quoted.double
+||                 ^ - string
+||                 ^ punctuation.definition.subexpression.end
+||                  ^   - variable - punctuation - meta.subexpression
+||                   ^^^^ variable.other.readwrite.path (TODO: THIS IS AN IDENTIFIER, AND ALSO A PROPERTY)
+||                       ^   - punctuation - variable
+||                        ^^   punctuation.definition.tag.template.end
+  {{! Nested Subexpressions }}
+  {{ foo (bar1 (bar2 "baz") quux1) quux2 }}
+||^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    meta.tag.template.singleline (TODO: THIS IS AN EXPRESSION)
+||<-                                         - meta.tag.template
+||                                         ^ - meta.tag.template
+||^^ punctuation.definition.tag.template.begin
+||  ^     - entity - punctuation
+||   ^^^    entity.name.function.helper (TODO: THIS IS AN IDENTIFIER)
+||      ^ - entity - meta.subexpression
+||       ^ punctuation.definition.subexpression.begin
+||       ^^^^^^^^^^^^^^^^^^^^^^^^^ meta.subexpression
+||       ^      - entity
+||        ^^^^    entity.name.function.helper
+||            ^ - entity - punctuation - meta.subexpression meta.subexpression
+||             ^^^^^^^^^^^^ meta.subexpression meta.subexpression
+||             ^      - entity
+||              ^^^^    entity.name.function.helper
+||                  ^ - entity - string
+||                   ^^^^^    string.quoted.double
+||                        ^ - string
+||                        ^ punctuation.definition.subexpression.end
+||                         ^       - variable - punctuation - meta.subexpression meta.subexpression
+||                          ^^^^^    variable.other.readwrite.path (TODO: THIS IS AN IDENTIFIER, AND ALSO A PROPERTY)
+||                               ^ - variable
+||                               ^    punctuation.definition.subexpression.end
+||                                ^ - punctuation - variable - meta.subexpression
+||                                 ^^^^^    variable.other.readwrite.path (TODO: THIS IS AN IDENTIFIER, AND ALSO A PROPERTY)
+||                                      ^ - variable
+||                                       ^^   punctuation.definition.tag.template.end
+
+
+
+
+
+  <!-- SUBEXPRESSIONS -->
+
+  {{! Subexpression Key-Value }}
+  {{foo (bar baz=quux)}}
+||           ^^^^^^^^    meta.argument.key-value
+||               ^^^^    meta.argument.key-value.value variable.other.readwrite.path
+||                   ^ - meta.argument.key-value - variable
+  {{foo (bar baz="quux")}}
+||           ^^^^^^^^^^    meta.argument.key-value
+||               ^^^^^^    meta.argument.key-value.value string.quoted.double
+||                     ^ - meta.argument.key-value - string
+  {{foo (bar baz='quux')}}
+||           ^^^^^^^^^^    meta.argument.key-value
+||               ^^^^^^    meta.argument.key-value.value string.quoted.single
+||                     ^ - meta.argument.key-value - string
+  {{foo (bar baz=@index)}}
+||           ^^^^^^^^^^    meta.argument.key-value
+||               ^^^^^^    meta.argument.key-value.value variable.language.data
+||               ^       - variable.language.data.keyword.index
+||                ^^^^^    variable.language.data.keyword.index
+||                     ^ - meta.argument.key-value - variable
+  {{foo (bar baz=-1.2)}}
+||           ^^^^^^^^    meta.argument.key-value
+||               ^^^^    meta.argument.key-value.value constant.numeric
+||                   ^ - meta.argument.key-value - variable - constant
+  {{foo (bar baz=true)}}
+||           ^^^^^^^^    meta.argument.key-value
+||               ^^^^    meta.argument.key-value.value constant.language.boolean.true
+||                   ^ - meta.argument.key-value - variable - constant
+
+  {{! Subexpression Variable }}
+  {{foo (bar baz)}}
+||           ^^^    variable.other.readwrite.path
+||              ^ - variable
+  {{! Subexpression Variable – Path }}
+  {{foo (bar .)}}
+||           ^    meta.path-traversal
+||            ^ - meta.path-traversal
+  {{! Subexpression Variable - Path After (Dot) }}
+  {{foo (bar baz . quux)}}
+||           ^^^    variable.other.readwrite.path
+||              ^ - variable - meta.path-traversal
+||               ^    meta.path-traversal
+||                ^ - meta.path-traversal - variable
+||                 ^^^^    variable.other.readwrite.path
+||                     ^ - variable
+  {{! Subexpression Variable - Path After (Dot) }}
+  {{foo (bar baz .quux)}}
+||           ^^^^^^^^^    variable.other.readwrite.path
+||                    ^ - variable
+  {{! Subexpression Variable - Path After (Slash) }}
+  {{foo (bar baz / quux)}}
+||           ^^^    variable.other.readwrite.path
+||              ^ - variable
+||              ^^^ meta.path-traversal
+||                ^      - variable
+||                 ^^^^    variable.other.readwrite.path
+||                     ^ - variable
+  {{! Subexpression Variable - Path Before (Dot Slash) }}
+  {{foo (bar . / baz)}}
+||           ^^^^ meta.path-traversal
+||               ^^^ variable.other.readwrite.path
+||                  ^ - variable
+  {{! Subexpression Data String (Double Quotes) }}
+  {{foo (bar "baz")}}
+||           ^^^^^    string.quoted.double
+||                ^ - string
+  {{! Subexpression Data String (Single Quotes) }}
+  {{foo (bar 'baz')}}
+||           ^^^^^    string.quoted.single
+||                ^ - string
+  {{! Subexpression Data Variable }}
+  {{foo (bar @index)}}
+||           ^^^^^^   variable.language.data
+||           ^      - variable.language.data.keyword.index
+||            ^^^^^    variable.language.data.keyword.index
+||                 ^ - variable
+  {{! Subexpression Number }}
+  {{foo (bar -1.2)}}
+||           ^^^^    variable.parameter.helper constant.numeric
+||               ^ - variable - constant
+  {{! Subexpression Boolean }}
+  {{foo (bar true)}}
+||           ^^^^    variable.parameter.helper constant.language.boolean.true
+||               ^ - variable - constant
+
+
+  <!-- SUBEXPRESSIONS - TRICKY SYNTAXES (AND FORMER ERRORS) -->
+
+  {{foo (bar (baz quux) )}}
+||                    ^      meta.subexpression meta.subexpression punctuation.definition.subexpression.end
+||                     ^^  - meta.subexpression meta.subexpression
+||                      ^    meta.subexpression punctuation.definition.subexpression.end
+||                       ^ - meta.subexpression
+  {{foo (bar (baz quux)) }}
+||                    ^     meta.subexpression meta.subexpression punctuation.definition.subexpression.end
+||                     ^  - meta.subexpression meta.subexpression
+||                     ^    meta.subexpression punctuation.definition.subexpression.end
+||                      ^ - meta.subexpression punctuation
+  {{foo (bar (baz quux))}}
+||                    ^     meta.subexpression meta.subexpression punctuation.definition.subexpression.end
+||                     ^  - meta.subexpression meta.subexpression
+||                     ^    meta.subexpression punctuation.definition.subexpression.end
+||                      ^ - meta.subexpression
+  {{foo (bar.baz quux)}}
+||       ^^^^^^^ meta.subexpression entity.name.function.helper
+  {{! FIX ME }}
+  {{foo bar.baz quux)}}
+
+  {{! FIX ME }}
+  {{foo (bar baz) quux)}}
+
+
+
+
+
+<!-- OTHER TAGS -->
+
+  {{{ foo }}}     <!-- Unescaped -->
+||^^^^^^^^^^^    meta.tag.template.unescaped
+||<-           - meta.tag.template.unescaped
+||           ^ - meta.tag.template.unescaped
+||^^^ punctuation.definition.tag.template.begin
+||   ^     - variable - punctuation
+||    ^^^    variable.other.readwrite.path
+||       ^ - variable - punctuation
+||        ^^^ punctuation.definition.tag.template.end
+
+  \{{escaped}}    <!-- Inline Escaped Tag -->
+||^^^^^^^^^^^^ - meta.tag.template
+||^^ constant.character.escape
+||  ^^^^^^^^^^ text.html.basic - constant
+
+  {{{{ raw }}}}     <!-- Raw Block Helper -->
+    {{escaped}}   <!-- Escaped Tag -->
+  {{{{/ raw }}}}
+
+  {{{{ raw @index foo "bar" .. / baz quux / . / biz .buz .[but] 1 false (bit bat) bot="butt" as |foo bar| }}}}     <!-- Raw Block Helper -->
+    {{escaped}}   <!-- Escaped Tag -->
+  {{{{/ raw }}}}
+
+  {{{{ my-raw-helper }}}} <!-- Custom Raw Block Helper -->
+    {{escaped}}         <!-- Escaped Tag -->
+    Also escaped
+    and not output.
+    <div>NOT HTML</div>
+  {{{{/ my-raw-helper }}}}
+
+  {{{{raw}}}}foo{{{{/raw}}}}
+  {{{{~raw~}}}}foo{{{{~/raw~}}}}
+  {{{{my-raw-helper}}}}foo{{{{/my-raw-helper}}}}
+  {{{{~my-raw-helper~}}}}foo{{{{~/my-raw-helper~}}}}
+
+
+
+
+
+  <!-- WHITESPACE CONTROL -->
+
+  {{~foo~}}
+||^^^^^^^^^ meta.tag.template
+||^^^ punctuation.definition.tag.template.begin
+||   ^^^ variable.other.readwrite.path
+||      ^^^ punctuation.definition.tag.template.end
+  {{~ foo ~}}
+||^^^^^^^^^^^ meta.tag.template
+||^^^    punctuation.definition.tag.template.begin
+||   ^ - punctuation - variable
+||    ^^^ variable.other.readwrite.path
+||       ^    - punctuation - variable
+||        ^^^   punctuation.definition.tag.template.end
+  {{~{ foo }~}}
+||^^^^^^^^^^^^^ meta.tag.template.unescaped
+||^^^^    punctuation.definition.tag.template.begin
+||    ^ - punctuation - variable
+||     ^^^ variable.other.readwrite.path
+||        ^     - punctuation - variable
+||         ^^^^   punctuation.definition.tag.template.end
+
+
+
+
+
+  <!-- TAGS W/ COMMENTS: TRICKY SYTNAXES -->
+
+  {{foo }}{{! Comment }}
+||       ^ meta.tag.template
+||        ^ comment.block - meta.tag
+  {{foo bar}}{{! Comment }}
+||          ^ meta.tag.template
+||           ^ comment.block - meta.tag
+  {{foo (bar baz)}}{{! Comment }}
+||                ^ meta.tag.template
+||                 ^ comment.block - meta.tag
+  {{#foo (bar baz)}}{{! Comment }}
+||                 ^ meta.tag.template
+||                  ^ comment.block - meta.tag
+  {{/foo}}
+
+  {{#each-in suggestions as |datasetKeyname datasetSuggestions|}}
+  {{/each-in}}
+
+
+
+
+
+  <!-- PARTIALS -->
+
+  {{! Partial }}
+  {{> myPartial }}
+
+  {{! Dynamic Partials }}
+  {{> (whichPartial) }}
+
+  {{> (lookup . "myVariable" ) }}
+
+  {{! Partial Context }}
+  {{> myPartial myOtherContext }}
+
+  {{! Partial Parameters }}
+  {{> myPartial parameter=value }}
+
+  {{> myPartial name=../name }}
+
+  {{! Partial Blocks }}
+  {{#> myPartial }}
+    Fallback Content
+  {{/myPartial}}
+
+  {{#> layout }}
+    Foo
+  {{/layout}}
+
+  {{> @partial-block }}
+
+  {{#each children as |child|}}
+    {{#> childEntry}}
+      {{child.value}}
+    {{/childEntry}}
+  {{/each}}
+
+
+  {{! Inline Partial }}
+  {{#*inline "myPartial"}}
+    My Content
+  {{/inline}}
+  {{#each children}}
+    {{> myPartial}}
+  {{/each}}
+
+  {{#> layout}}
+    {{#*inline "nav"}}
+      My Nav
+    {{/inline}}
+    {{#*inline "content"}}
+      My Content
+    {{/inline}}
+  {{/layout}}
+
+
+</body>
+</html>

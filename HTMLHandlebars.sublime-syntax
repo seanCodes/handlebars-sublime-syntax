@@ -1,0 +1,1638 @@
+%YAML 1.2
+---
+name: HTML Handlebars
+file_extensions:
+  - handlebars
+  - handlebars.html
+  - hbs
+scope: text.html.handlebars
+first_line_match: (?i)<(!DOCTYPE\s*)?html
+
+variables:
+  ANY_CHAR: .*?
+
+  TAG_BEGIN:     ({{(~?){?) # constant.character.control.whitespace ?
+  TAG_END:       (}?(~?)}})(?!})
+  TAG_END_PAREN: (?:(\))|(}?(~?)}})(?!}))
+  TAG_END_CHAR: \s~}
+  NOT_TAG_END:  '[^{{TAG_END_CHAR}}]+(?:\s+[^{{TAG_END_CHAR}}]+)*'
+  EMPTY_LINE:   ^\s*$
+  PATH_START:   (?:\.\.?\s*\/\s*)*
+  PATH_NAME:    (?:[\w_-][\w\._-]*)
+  PATH:         (?:{{PATH_START}}{{PATH_NAME}}|\.)(?=[{{TAG_END_CHAR}}])
+  PATH_QUOTED:  (?:[^\s'"]|\'")(?=[\s'"~}])
+  PATH_QUOTED_SINGLE:  (')((?:\\'|[^'])+)(')
+  PATH_QUOTED_DOUBLE:  (")((?:\\"|[^"])+)(")
+  PATH_DOTTED_OR_SLASHED: '{{IDENTIFIER}}(?:\ *(?:\.(?:\[{{ANY_CHAR}}\]|''[^'']*''|"[^"]*"|{{IDENTIFIER}})|\/ *{{IDENTIFIER}}))*'
+  SEPARATOR:    '[./){{TAG_END_CHAR}}]' # close paren only occurs within subexpression
+  TOKEN:        '[^{{TAG_END_CHAR}}]'
+  TOKEN_QUOTED: (['"])({{ANY_CHAR}})(\2)
+  IDENTIFIER:                '[^\s!"#%&''()*+,./;<=>@\[\\\]^`{|}~]+'
+  IDENTIFIER_CHAR:           '[^\s!"#%&''()*+,./;<=>@\[\\\]^`{|}~]' # maybe name sets `*_SET`
+  NON_IDENTIFIER_CHAR:        '[\s!"#%&''()*+,./;<=>@\[\\\]^`{|}~]'
+  NOT_IDENTIFIER_NOT_SPACE:     '[!"#%&''()*+,./;<=>@\[\\\]^`{|}~]'
+  NOT_IDENTIFIER_NOT_SEPARATOR: '[!"#%&''()*+,;<=>@\[\\\]^`{|}~]'
+  NUMBER:       ([+-]?\d+(?:\.\d+)?)
+  BOOLEAN:      (?i)(?:(true)|(false))
+
+  LOOKAHEAD:         '[~}\s)/.|=]'
+  LITERAL_LOOKAHEAD: '[~}\s)]'
+
+contexts:
+  prototype:
+    - include: comment-sublime-syntax-test
+
+  main:
+    - match: ''
+      push: HTML.sublime-syntax
+      with_prototype:
+      - include: comment-sublime-syntax-test
+
+      - include: comment-block-explicit
+      - include: comment-block
+
+      - include: escaped-stache
+      - include: tag-block-raw
+      #- include: tag-raw
+      - include: tag-unescaped
+      - include: tag-partially-one-line
+      - include: tag-one-line
+      - include: tag
+
+  # FOR SUBLIME SYNTAX TESTING
+  comment-sublime-syntax-test:
+    - match: ^\s*(\|\|) #|\—\—|[–-]<|\[\[|\]\]|\]\[|\[\]|::|\*\*|>>|<<|\.\.|==|__|~~|\\\\|//|##)
+      captures:
+        1: punctuation.definition.comment.sublime-syntax-test
+      push:
+      - meta_scope: source.sublime-syntax-test
+
+      - match: ' +(?!\n)'
+        scope: meta.test.sublime-syntax-test
+
+      - match: '[^^<].*(?= *\n)'
+        scope: meta.test.sublime-syntax-test comment.test.sublime-syntax-test
+
+      - match: (\^+)(?=\s*-)|(\^+)|(<-)(?=\s*-)|(<-)
+        captures:
+          1: constant.character.test.negative.column.sublime-syntax-test
+          2: constant.character.test.positive.column.sublime-syntax-test
+          3: constant.character.test.negative.comment-start.sublime-syntax-test
+          4: constant.character.test.positive.comment-start.sublime-syntax-test
+        push:
+        - meta_scope: meta.test.sublime-syntax-test
+
+        - match: -\s*\w[\w.-]+
+          scope: variable.other.scope.negative.sublime-syntax-test
+
+        - match: '[\w-]\S+'
+          scope: variable.other.scope.positive.sublime-syntax-test
+
+        - match: '[^\w\s-][\w -]*'
+          scope: comment.test.sublime-syntax-test
+
+        - match: '(?= *\n)'
+          pop: true
+      - match: ' *\n'
+        scope: meta.test.sublime-syntax-test meta.test.after.sublime-syntax-test
+        pop: true
+
+
+  comment-block:
+    - match: ({{(~?))(!)
+      scope: punctuation.definition.comment.block.begin
+      # captures:
+      #   2: constant.character.comment.start
+      push:
+      - meta_scope: comment.block
+
+      - match: ((~?)}})
+        scope: punctuation.definition.comment.block.end
+        pop: true
+
+      - include: comment-annotation
+
+  comment-block-explicit:
+    - match: ({{(~?))(!--)
+      scope: punctuation.definition.comment.block.explicit.begin
+      # captures:
+      #   2: constant.character.comment.start
+      push:
+      - meta_scope: comment.block.explicit
+
+      - match: (--)((~?)}})
+        scope: punctuation.definition.comment.block.explicit.end
+        # captures:
+        #  1: constant.character.comment.block.end
+        pop: true
+
+      - include: comment-annotation
+
+  comment-annotation:
+    - match: \s((@)(\w+))
+      captures:
+        2: constant.character.annotation
+        3: keyword.annotation
+      scope: meta.keyword.annotation
+
+
+  escaped-stache:
+    - match: \\{
+      scope: constant.character.escape
+
+
+  tag-raw:
+    - match: (?={{{{/?)
+      push:
+      - meta_scope: meta.tag.template.raw #light-gray
+
+      - match: ({{{{)(/)?
+        captures:
+          1: punctuation.definition.tag.template.begin
+          2: constant.character.block.close
+        push:
+        - include: -tag-guts-
+
+      - match: (?<=}}}})
+        pop: true
+
+  tag-unescaped:
+    - match: (?={{~?{[^{])
+      push:
+      - meta_scope: meta.tag.template.unescaped #light-gray
+
+      - match: (?:{{TAG_BEGIN}})
+        captures:
+          1: punctuation.definition.tag.template.begin
+        push:
+        - include: -tag-guts-
+
+      - match: (?<=}}})
+        pop: true
+
+      - match: (?<=}~}})
+        pop: true
+
+  tag:
+    - match: (?={{[^{])
+      push:
+      - meta_scope: meta.tag.template #light-gray
+
+      - include: -tag-end-
+      - include: -after-tag-end-pop-
+
+      - include: -tag-block-open-
+      - include: -tag-block-close-
+
+      - match: (?:{{TAG_BEGIN}})
+        captures:
+          1: punctuation.definition.tag.template.begin
+        push:
+        - include: -else- # `else` only works between double mustaches
+        - include: -tag-guts-
+
+
+  # Match tags that have the open tag and two identifiers (indicating that the tag is not just a
+  # path, but actually a helper).
+  tag-partially-one-line:
+    - match: (?={{TAG_BEGIN}} *(?!this|else){{PATH_DOTTED_OR_SLASHED}}[^~}]*$)
+      push:
+      - meta_scope: meta.tag.template.partially-one-line
+
+      - include: -tag-end-
+      - include: -after-tag-end-pop-
+
+      - match: (?:{{TAG_BEGIN}}) *({{PATH_DOTTED_OR_SLASHED}}) # TODO: match individual parts
+        captures:
+          1: punctuation.definition.tag.template.begin
+          3: entity.name.function.helper # variable.function
+        push:
+        - include: -tag-guts-
+
+      - match: (?:{{TAG_BEGIN}})
+        captures:
+          1: punctuation.definition.tag.template.begin
+        push:
+        - include: -else-
+        - include: -tag-guts-
+
+  # Match tags that have the open tag and two identifiers (indicating that the tag is not just a
+  # path, but actually a helper).
+  tag-partial-one-line:
+    - match: (?={{TAG_BEGIN}} *(?!this|else){{PATH_DOTTED_OR_SLASHED}} +[^/.\[}][^~}]+$)
+      push:
+      - meta_scope: meta.tag.template.partial-one-line
+
+      - include: -tag-end-
+      - include: -after-tag-end-pop-
+
+      - match: (?:{{TAG_BEGIN}}) *({{PATH_DOTTED_OR_SLASHED}}) # TODO: match individual parts
+        captures:
+          1: punctuation.definition.tag.template.begin
+          3: entity.name.function.helper # variable.function
+        push:
+        - include: -tag-guts-
+
+      - match: (?:{{TAG_BEGIN}})
+        captures:
+          1: punctuation.definition.tag.template.begin
+        push:
+        - include: -else-
+        - include: -tag-guts-
+
+  tag-one-line:
+    # - match: (?={{TAG_BEGIN}} *(?!this|else){{PATH_DOTTED_OR_SLASHED}} +[^./{{TAG_END_CHAR}}]{{ANY_CHAR}}{{TAG_END}})
+    # - match: (?={{TAG_BEGIN}} *(?!this|else){{PATH_DOTTED_OR_SLASHED}} +(\.(?=[ ~}])|[^./ ~}]){{ANY_CHAR}}{{TAG_END}})
+    - match: (?={{TAG_BEGIN}} *(?!this|else){{PATH_DOTTED_OR_SLASHED}} +(?!\/ *.|\.[^. ~}]|[ ~}]){{ANY_CHAR}}{{TAG_END}})
+      push:
+      - meta_scope: meta.tag.template.singleline
+
+      - include: -tag-end-
+      - include: -after-tag-end-pop-
+
+      - match: (?:{{TAG_BEGIN}}) *({{PATH_DOTTED_OR_SLASHED}}) # +([^ ~}]{{ANY_CHAR}}){{TAG_END}}
+        captures:
+          1: punctuation.definition.tag.template.begin
+          3: entity.name.function.helper # variable.function
+        push:
+        - include: -tag-guts-
+
+      # - match: (?:{{TAG_BEGIN}}) *({{PATH_DOTTED_OR_SLASHED}})(?= +[^ ~}]) # TODO: match individual parts
+      #   captures:
+      #     #1: punctuation.definition.tag.template.begin
+      #     3: entity.name.function.helper # variable.function
+      #   push:
+      #   - include: -tag-guts-
+
+      # - match: (?:{{TAG_BEGIN}})
+      #   # captures:
+      #   #   1: punctuation.definition.tag.template.begin
+      #   push:
+      #   - include: -else-
+      #   - include: -tag-guts-
+
+
+
+  -tag-guts-:
+    - include: -tag-end-
+    - include: -subexpression-end-
+    - include: -subexpression-
+    - include: -named-parameter-
+    - include: -key-value-
+    - include: -string-quoted-double-
+    - include: -string-quoted-single-
+    - include: -data-var-
+    - include: -path-
+    - include: -path-id-
+
+  tag-block-raw:
+    # Unmatched Block Close Tag
+    - match: ({{{{~?/)
+      scope: invalid.illegal.missing-raw-block-open-tag
+
+    # Before Block Open Tag
+    - match: (?={{{{~?[^/])
+      push:
+
+      # Block Open Tag - Begin
+      - match: ({{{{(~?))(?=[^/])
+        scope: punctuation.definition.tag.template.begin
+        push:
+        - meta_scope: meta.tag.template
+
+        # Pop Before Tag End
+        - match: (?=\s*~?}}}})
+          pop: true
+
+        # Invalid Chars
+        - match: ({{NOT_IDENTIFIER_NOT_SPACE}}+)
+          scope: invalid.illegal.expected-identifier
+          pop: true
+
+        # Helper Name
+        - match: \s*({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+          scope: entity.name.function.helper # variable.function
+          push:
+          # Pop Before Tag End
+          - match: (?=\s*~?}}}})
+            pop: true
+          # Pop Before Invalid Chars
+          - match: (?=[!#%&)*+,/;<=>\[\\\]^`{}~])
+            pop: true
+          - include: -tag-block-guts-
+
+        # Pop Before Invalid Char
+        - match: (?=[^{{TAG_END_CHAR}}])
+          pop: true
+
+      # Block Open Tag - End
+      - match: \s*(~?)(}}}})
+        scope: meta.tag.template
+        captures:
+          2: punctuation.definition.tag.template.end
+        set:
+
+        # Block Close Tag - Begin
+        - match: ({{{{(~?))(\/)
+          captures:
+            1: punctuation.definition.tag.template.begin
+            3: constant.character.block.close
+          set:
+          - meta_scope: meta.tag.template.block.raw
+
+          # `raw` Helper
+          - match: \braw(?=[{{TAG_END_CHAR}}])
+            scope: entity.name.function.helper.builtin
+            push:
+            # Pop Before Tag End
+            - match: (?=\s*~?}}}})
+              pop: true
+            # Pop Before Bad Tag End (Wrong # of Mustaches)
+            - match: (?=\s*~?}+)
+              pop: true
+            # Invalid Other Chars
+            - match: \s*({{ANY_CHAR}})(?=\s*~?}}}})
+              captures:
+                1: invalid.illegal.expected-tag-end
+              pop: true
+
+          # Other Helper
+          - match: (?:{{PATH_DOTTED_OR_SLASHED}})
+            scope: entity.name.function.helper
+            push:
+            # Pop Before Tag End
+            - match: (?=\s*~?}}}})
+              pop: true
+            # Pop Before Bad Tag End (Wrong # of Mustaches)
+            - match: (?=\s*~?}+)
+              pop: true
+            # Invalid Other Chars
+            - match: \s*({{ANY_CHAR}})(?=\s*~?}}}})
+              captures:
+                1: invalid.illegal.expected-tag-end
+              pop: true
+
+          # Block Close Tag - End
+          - match: \s*(~?)(}}}})
+            captures:
+              2: punctuation.definition.tag.template.end
+            pop: true
+
+          # Bad Tag End (Wrong # of Mustaches)
+          - match: \s*(~?}+)
+            captures:
+              1: invalid.illegal.expected-four-mustaches
+            pop: true
+
+      # Pop Before Invalid Char
+      - match: (?=[^\s~{}])
+        pop: true
+
+
+
+  -tag-block-open-:
+    - match: (?:{{TAG_BEGIN}})(\^)
+      captures:
+        1: punctuation.definition.tag.template.begin
+        3: constant.character.block.inverted.open
+      push:
+      #- meta_scope: meta.tag.template.block
+      - match: ({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+        scope: entity.name.function.helper # variable.function
+        set:
+        - include: -tag-block-guts-
+
+      - include: -tag-end-
+
+    - match: (?:{{TAG_BEGIN}})(>)
+      captures:
+        1: punctuation.definition.tag.template.begin
+        3: constant.character.partial
+      push:
+      #- meta_scope: meta.tag.template.block
+      - include: -subexpression-
+      - include: -data-var-
+      - match: ({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+        scope: entity.name.function.helper # variable.function
+        set:
+        - include: -tag-block-guts-
+
+      - include: -tag-end-
+
+    - match: (?:{{TAG_BEGIN}})(#)(>)
+      captures:
+        1: punctuation.definition.tag.template.begin
+        3: constant.character.block.open
+        4: constant.character.partial
+      push:
+      #- meta_scope: meta.tag.template.block
+      - include: -subexpression-
+      - include: -data-var-
+      - match: ({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+        scope: entity.name.function.helper # variable.function
+        set:
+        - include: -tag-block-guts-
+
+      - include: -tag-end-
+
+    - match: (?:{{TAG_BEGIN}})(#)(\*)
+      captures:
+        1: punctuation.definition.tag.template.begin
+        3: constant.character.block.open
+        4: constant.character.inline-partial
+      push:
+      #- meta_scope: meta.tag.template.block
+      - match: ({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+        scope: entity.name.function.helper # variable.function
+        set:
+        - include: -tag-block-guts-
+
+      - include: -tag-end-
+
+    - match: (?:{{TAG_BEGIN}})(#)
+      captures:
+        1: punctuation.definition.tag.template.begin
+        3: constant.character.block.open
+      push:
+      #- meta_scope: meta.tag.template.block
+      - match: \b(?:(if)|(unless))(?=\s)
+        captures:
+          1: keyword.control.conditional.if # keyword.control.conditional.if
+          2: keyword.control.conditional.unless # keyword.control.conditional.unless
+        set:
+        - include: -tag-block-guts-
+
+      - match: \b(?:(each)|(each-in)|(with))(?=\s)
+        captures:
+          1: keyword.control.conditional.each
+          2: keyword.control.conditional.each-in
+          3: keyword.control.conditional.with
+        set:
+        # - meta_scope: default
+        # - include: -named-parameter-
+        - include: -tag-block-guts-
+
+      - match: ({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+        scope: entity.name.function.helper # variable.function
+        set:
+        # - meta_scope: default
+        - include: -tag-block-guts-
+
+      - include: -tag-end-
+
+  -tag-block-close-:
+    - match: (?:{{TAG_BEGIN}})(/)
+      captures:
+        1: punctuation.definition.tag.template.begin
+        3: constant.character.block.close
+      push:
+
+      - match: (?:(each)|(each-in)|(if)|(unless)|(with))(?=[{{TAG_END_CHAR}}])
+        captures:
+          1: keyword.control.loop.each
+          2: keyword.control.loop.each-in
+          3: keyword.control.conditional.if
+          4: keyword.control.conditional.unless
+          5: keyword.control.context.with
+        set:
+        - include: -expect-tag-end-
+
+      - match: ({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+        scope: entity.name.function.helper.close
+        set:
+        - include: -expect-tag-end-
+
+      - include: -tag-end-
+
+  -tag-block-guts-:
+    - include: -tag-guts-
+    # - include: -tag-end-
+    # - include: -subexpression-
+    # - include: -named-parameter-
+    # - include: -key-value-
+    # - include: -string-quoted-double-
+    # - include: -string-quoted-single-
+    # - include: -data-var-
+    # - include: -path-
+    # - include: -path-id-
+
+
+
+  -else-:
+    - match: \b(else)(?=[{{TAG_END_CHAR}}])
+      scope: keyword.control.conditional.else
+      set:
+      #- include: -tag-end-
+      - include: -if-
+      - include: -expect-tag-end-
+
+  -if-:
+    - match: \b(if)(?=[{{TAG_END_CHAR}}])
+      scope: keyword.control.conditional.if
+      set:
+      #- include: -expect-identifier-one-
+      - include: -subexpression-end-
+      - include: -subexpression-
+      - include: -string-quoted-double-
+      - include: -string-quoted-single-
+      - include: -path-
+      - include: -path-id-
+      - match: ({{TAG_END}})
+        scope: invalid.illegal.expected-condition
+        pop: true
+      - match: ({{NOT_TAG_END}})
+        scope: invalid.illegal.expected-condition
+        set:
+        - include: -expect-tag-end-
+
+  -key-value-:
+    - match: ({{IDENTIFIER}})\s*(=) #\s*(?=['"]|{{IDENTIFIER_CHAR}})
+      captures:
+        1: meta.argument.key-value.key variable.parameter.helper
+        2: punctuation.separator.key-value
+      push:
+      - meta_scope: meta.argument.key-value
+
+      - include: -before-tag-end-pop-
+
+      # Pop After String/Subexpression End
+      - match: (?<=["')])
+        pop: true
+
+      # Subexpression
+      - match: (?=\()
+        push:
+        - meta_scope: meta.argument.key-value.value
+        - include: -subexpression-
+        - match: (?<=\))
+          pop: true
+
+      # String (Double Quotes)
+      - match: (?=\s*")
+        push:
+        - meta_scope: meta.argument.key-value.value
+        - include: -string-quoted-double-
+        - match: (?<=")
+          pop: true
+
+      # String (Single Quotes)
+      - match: (?=\s*')
+        push:
+        - meta_scope: meta.argument.key-value.value
+        - include: -string-quoted-single-
+        - match: (?<=')
+          pop: true
+
+      # Data Variable
+      - match: (?=\s*@)
+        push:
+        - meta_scope: meta.argument.key-value.value
+        - include: -data-var-
+        - match: (?=[){{TAG_END_CHAR}}])
+          pop: true
+
+      # Number
+      - match: \s*{{NUMBER}}
+        captures:
+          1: meta.argument.key-value.value constant.numeric
+        pop: true
+
+      # Boolean
+      - match: \s*{{BOOLEAN}}
+        captures:
+          1: meta.argument.key-value.value constant.language.boolean.true
+          2: meta.argument.key-value.value constant.language.boolean.false
+        pop: true
+
+      # Identifier
+      - match: \s*(?={{IDENTIFIER_CHAR}})
+        set:
+        - meta_scope: meta.argument.key-value meta.argument.key-value.value
+        - match: (?={{NON_IDENTIFIER_CHAR}})
+          pop: true
+        - include: -identifier-
+
+      # Path
+      - match: (?=\s*\.)
+        push:
+        - meta_scope: meta.argument.key-value.value
+        - match: (?=\s*\.)
+          push:
+          - include: -path-
+        - match: (?<=\S)
+          pop: true
+
+      - include: -before-tag-end-pop-
+
+  -named-parameter-:
+    - match: \bas(?=\s)
+      scope: keyword.control.operator.as
+      push:
+      - match: (?<=\|)
+        pop: true
+
+      - include: -after-tag-end-pop-
+
+      - match: (?:[^|{{TAG_END_CHAR}}]+)
+        scope: invalid.illegal.expected-named-parameter-pipe
+        pop: true
+
+      - match: \|
+        scope: keyword.operator.assignment.named-parameter
+        push:
+        - meta_scope: meta.named-parameter
+        - match: \|
+          scope: keyword.operator.assignment.named-parameter
+          pop: true
+        - match: ({{TAG_END}})
+          scope: invalid.illegal.expected-named-parameter-pipe
+          pop: true
+        - match: ({{IDENTIFIER}})
+          scope: variable.other.readwrite.named-parameter
+
+
+
+  -path-:
+    # Dot(s)
+    - match: \.\.?(?={{LOOKAHEAD}})
+      scope: meta.path-traversal -path-
+      set:
+      #- meta_content_scope: meta.path-traversal -path--after-
+      - meta_content_scope: -path--after-
+
+      # Subsequent Slash
+      - include: -path-slash-
+
+      # Anything Except Slash
+      - match: (?=\s*\S)
+        set:
+        - include: -before-tag-end-pop-
+        - include: -tag-guts-
+
+  -path-pop-:
+    # Dot(s)
+    - match: \.\.?(?={{LOOKAHEAD}})
+      scope: meta.path-traversal -path-
+      set:
+      - meta_content_scope: meta.path-traversal -path--after-
+
+      # Subsequent Slash
+      - include: -path-slash-
+
+      # Anything Except Slash
+      - match: (?=\s*\S)
+        pop: true
+
+  -path-slash-:
+    #- include: -before-tag-end-pop-
+
+    # Slash
+    - match: \s*/
+      scope: meta.path-traversal -path-slash-
+      set:
+      - meta_content_scope: meta.path-traversal -path-slash-
+      - include: -before-tag-end-pop-
+
+      # Dot Followed By Not Dot
+      - match: (\s*)(\.[^./{{TAG_END_CHAR}}])
+        captures:
+          1: meta.path-traversal
+          2: invalid.illegal.invalid-path
+        set:
+        - include: -tag-guts-
+
+      # Dots (Again)
+      - match: \s*(?=\.\.?)
+        scope: meta.path-traversal # bridge the gap between `/` and `.`
+        set: -path-
+
+      # Identifiers
+      - match: \s*(?=\[|{{IDENTIFIER_CHAR}})
+        set:
+        - include: -before-tag-end-pop-
+        - include: -tag-guts-
+
+      # Data Vars
+      - match: \s*(?=@)
+        set:
+        - include: -data-var-
+
+      # BAD Subsequent Slash
+      - match: \s*/
+        scope: invalid.illegal.invalid-path -path-slash-
+        pop: true
+
+      # BAD Tag End
+      - match: \s*({{TAG_END}})
+        captures:
+          1: invalid.illegal.expected-context-path -path-slash-
+        pop: true
+
+      # BAD Anything else
+      - match: \S
+        scope: invalid.illegal.invalid-path-character -path-slash-
+        pop: true
+
+  -path-id-:
+    # POP if we just passed a close tag.
+    - include: -after-tag-end-pop-
+    - include: -before-tag-end-pop-
+
+    - match: this(?={{SEPARATOR}})
+      scope: variable.language.this -path-id--this-
+      push:
+      - meta_content_scope: -path-id--this-
+      - include: -path-id-after-
+
+    - match: (?=-?\d+(\.\d+)?)
+      push:
+      - meta_scope: variable.parameter.helper
+      - include: -number-
+      - match: (?=\D)
+        pop: true
+
+    - match: (?=true|false)
+      push:
+      - meta_scope: variable.parameter.helper
+      - include: -boolean-
+      - match: (?=\W)
+        pop: true
+
+    - match: ({{IDENTIFIER}})(?={{SEPARATOR}})
+      scope: variable.other.readwrite.path -path-id--id-
+      push:
+      - meta_content_scope: -path-id--id--after- #bright.red-orange -path-id--id-
+      - include: -before-tag-end-pop-
+      - match: (?=\s*\.this)
+        pop: true
+      - include: -path-id-after-
+
+    - match: \[
+      push:
+      - meta_scope: variable.other.readwrite.path -path-id--bracketed-
+      - match: \]
+        set:
+        - meta_content_scope: -path-id--bracketed--after-
+        - include: -path-id-after-
+
+    - match: ({{IDENTIFIER}}{{NOT_IDENTIFIER_NOT_SEPARATOR}}+[^{{TAG_END_CHAR}}]*)
+      scope: invalid.illegal.invalid-path -path-id-
+
+    - match: ({{NOT_IDENTIFIER_NOT_SPACE}}+[^{{TAG_END_CHAR}}]*)
+      scope: invalid.illegal.invalid-path -path-id-
+
+  -path-id-after-:
+    # POP if we just passed a close tag.
+    - include: -after-tag-end-pop-
+    - include: -before-tag-end-pop-
+
+    # Subsequent Dotted Identifier
+    - match: \s*\.{{IDENTIFIER}}
+      scope: variable.other.readwrite.path -path-id-after--dotted-
+
+    # Subsequent Dotted Bracketed Identifier
+    - match: \s*\.\[
+      push:
+      # TODO: Fix double vars here.
+      - meta_scope: meta.path.segment-literal variable.other.readwrite.path -path-id-after--bracketed-
+      - meta_content_scope: variable.other.readwrite.path.path-literal -path-id-after--bracketed-
+      - include: -number-
+      - match: \]
+        pop: true
+
+    # Subsequent Quoted Identifier
+    - match: \s*\.(')
+      captures:
+        1: string.quoted.single punctuation.definition.string.quoted.single
+      push:
+      # TODO: Fix double vars here.
+      - meta_scope: meta.path.segment-literal variable.other.readwrite.path -path-id-after--bracketed-
+      - meta_content_scope: variable.other.readwrite.path.path-literal string.quoted.single -path-id-after--bracketed-
+      - include: -number-
+      - match: \'
+        scope: string.quoted.single punctuation.definition.string.quoted.single
+        pop: true
+
+    # Subsequent Quoted Identifier
+    - match: \s*\.(")
+      captures:
+        1: string.quoted.double punctuation.definition.string.quoted.double
+      push:
+      # TODO: Fix double vars here.
+      - meta_scope: meta.path.segment-literal  variable.other.readwrite.path -path-id-after--bracketed-
+      - meta_content_scope: variable.other.readwrite.path.path-literal variable.other.readwrite.path.path-literal string.quoted.double -path-id-after--bracketed-
+      - include: -number-
+      - match: \"
+        scope: string.quoted.double punctuation.definition.string.quoted.double
+        pop: true
+
+    # Subsequent Slash
+    - match: \s*/
+      set:
+      - meta_scope: meta.path-traversal -path-id-after--separator-
+
+      # POP if we just passed a close tag.
+      - include: -after-tag-end-pop-
+
+      # Dots
+      - match: \s*(?=\.\.?{{LOOKAHEAD}})
+        pop: true
+
+      # Identifiers
+      - match: \s*(?=\[|{{IDENTIFIER_CHAR}})
+        pop: true
+
+      # BAD Subsequent Slash
+      - match: \s*/
+        scope: invalid.illegal.invalid-path -path-id-after--separator-
+        pop: true
+
+      # BAD Tag End
+      - match: \s*({{TAG_END}})
+        captures:
+          1: invalid.illegal.expected-context-path -path-id-after--separator-
+
+      - match: (?=\s*\S)
+        pop: true
+
+    - include: -before-unmatched-char-pop-
+
+
+
+  -this-:
+    - match: \s*(this)
+      set:
+      - meta_content_scope: meta.path-traversal
+
+      - include: -slash-
+
+      - match: \s*\.this
+
+      - match: \s*\.(?=\[|{{IDENTIFIER_CHAR}})
+        scope: variable.other.readwrite -this-
+
+      - include: -identifier-
+
+      # Bad Dot
+      - match: \s*(?=\.\.?[/{{TAG_END_CHAR}}])
+        set:
+        - include: -expect-tag-end-
+
+      - match: ''
+        pop: true
+
+  -slash-:
+    - match: \s*(/)
+      set:
+      - meta_content_scope: meta.path-traversal
+
+      - include: -this-
+      - include: -dot-
+
+      - match: ''
+        pop: true
+
+  -dot-:
+    - match: \s*(\.\.?)(?=[/{{TAG_END_CHAR}}])
+      set:
+      - meta_content_scope: meta.path-traversal
+
+      - include: -slash-
+
+      - match: ''
+        pop: true
+
+  -id-:
+    - match: \[
+      push:
+      - meta_scope: bright.bluebird
+      - match: \]
+        pop: true
+
+    - match: (?={{IDENTIFIER_CHAR}}|\.\.?{{LOOKAHEAD}})
+      push:
+      - meta_scope: bright.bluebird
+
+      - match: (?=\s*\.this\b)
+        set:
+        - match: \.this
+          scope: invalid
+          pop: true
+
+      - match: (?=\s*/)
+        set:
+        - meta_scope: bright.orange
+        - match: \s*/
+        - match: \s*({{NON_IDENTIFIER_CHAR}}\S*)
+          scope: invalid.illegal
+          pop: true
+        - match: (?=\S)
+          pop: true
+
+      - match: (?=\s*{{IDENTIFIER_CHAR}})
+        pop: true
+
+      - match: \s*\.{{IDENTIFIER}}
+
+      - match: \s*\.\[
+        push:
+        - match: \]
+          pop: true
+
+      - include: -non-id-pop-
+
+  -non-id-pop-:
+    - match: (?=\s*{{NOT_IDENTIFIER_NOT_SPACE}})
+      pop: true
+    # - match: (?=\s*({{IDENTIFIER_CHAR}}|{{SEPARATOR}}))
+    #   pop: true
+
+  -number-:
+    - match: (-?)(\d+(\.\d+)?)
+      scope: constant.numeric
+
+  -boolean-:
+    - match: (true)|(false)
+      captures:
+        1: constant.language.boolean.true
+        2: constant.language.boolean.false
+
+
+
+  -identifier-:
+    - include: -tag-end-
+
+    - match: \s*
+
+    - match: (?=\/)
+      set:
+      - meta_content_scope: invalid.illegal.invalid-path
+      - include: -tag-end-
+
+    - match: \s*\.\.?(?={{LOOKAHEAD}})
+      push:
+      - meta_scope: meta.path-traversal
+      - include: -before-tag-end-pop-
+      - match: \s*(?={{IDENTIFIER_CHAR}})
+        pop: true
+
+    # - match: (?=this)
+    #   push:
+    #   # Match any identifiers.
+    #   - match: (this)(?={{NON_IDENTIFIER_CHAR}})
+    #     scope: variable.language
+    #     set:
+    #     - meta_scope: -identifier--this variable.other.readwrite
+    #     - match: \s*/\s*(?=\.{{SEPARATOR}})
+    #       scope: meta.path-traversal
+    #       pop: true
+    #     - match: \s*/\s*(?=this)
+    #       scope: meta.path-traversal
+    #       pop: true
+    #     - match: \s*/\s*(?={{IDENTIFIER}})
+    #       scope: meta.path-traversal
+    #       pop: true
+    #     - match: \s*/\s*(?=\..)
+    #       scope: meta.path-traversal
+    #       set:
+    #       - include: -expect-tag-end-
+    #     - match: \s*/
+    #       scope: -identifier--this--after meta.path-traversal
+    #       set:
+    #       # We should never reach an end tag here.
+    #       - match: ({{TAG_END}})
+    #         scope: invalid.illegal.expected-context-path
+    #         pop: true
+    #     - include: -after-identifier-
+    #   # If nothing matched, pop.
+    #   - match: ''
+    #     pop: true
+
+    # - match: (?={{IDENTIFIER_CHAR}})
+    #   push:
+    #   # Match any identifiers.
+    #   - match: ({{IDENTIFIER}})
+    #     push:
+    #     - meta_scope: -identifier--identifier variable.other.readwrite
+    #     - include: -after-identifier-
+    #   # If nothing matched, pop.
+    #   - match: ''
+    #     pop: true
+
+    # - match: \[
+    #   push:
+    #   - meta_scope: -identifier--bracketed variable.other.readwrite
+    #   - match: \]
+    #     set:
+    #     - meta_scope: variable.other.readwrite
+    #     - include: -after-identifier-
+
+    - match: this(?={{SEPARATOR}})
+      scope: variable.language.this -path-id--this-
+      push:
+      - meta_content_scope: -path-id--this-
+      - include: -path-id-after-
+
+    - match: ({{IDENTIFIER}})(?={{SEPARATOR}})
+      scope: variable.other.readwrite.path -path-id--id-
+      push:
+      - meta_content_scope: -path-id--id--after- #bright.red-orange -path-id--id-
+      - include: -before-tag-end-pop-
+      - match: (?=\s*\.this)
+        pop: true
+      - include: -path-id-after-
+
+    - match: \[
+      push:
+      - meta_scope: variable.other.readwrite.path -path-id--bracketed-
+      - match: \]
+        set:
+        - meta_content_scope: -path-id--bracketed--after-
+        - include: -path-id-after-
+
+    - match: ({{IDENTIFIER}}{{NOT_IDENTIFIER_NOT_SEPARATOR}}+[^{{TAG_END_CHAR}}]*)
+      scope: invalid.illegal.invalid-path -path-id-
+
+    - match: ({{NOT_IDENTIFIER_NOT_SPACE}}+[^{{TAG_END_CHAR}}]*)
+      scope: invalid.illegal.invalid-path -path-id-
+
+  -after-identifier-:
+    # Separator slashes
+    - match: \s*/
+      push:
+      - meta_scope: -after-identifier--after-slash
+      # Identifier
+      - match: \s*{{IDENTIFIER}}
+        pop: true
+      # Bracketed Identifier
+      - match: \s*\[
+        push:
+        - match: \]
+          pop: true
+      - include: -after-identifier-
+
+    # Subsequent Dotted Identifier
+    - match: \s*\.{{IDENTIFIER}}
+      push:
+      - meta_scope: -after-identifier--after-dotted
+      - include: -after-identifier-
+
+    # Subsequent Dotted, Bracketed Identifier
+    - match: \s*\.\[
+      push:
+      - meta_scope: -after-identifier--bracketed
+      - match: \]
+        pop: true
+
+    # Subsequent Dotted Anything Else
+    - match: (?=\s*\..|\s*\.$)
+      set:
+      - include: -expect-tag-end-
+
+    - match: \s$
+
+    # Upon reaching a non-identifier character, pop.
+    - match: (?=\s*({{IDENTIFIER_CHAR}}|{{SEPARATOR}}))
+      pop: true
+
+
+
+  -subexpression-:
+    - match: (\()[^)}~]*({{TAG_END}})
+      captures:
+        1: punctuation.definition.subexpression.begin
+        2: invalid.illegal.expected-close-paren
+
+    - match: \(
+      scope: punctuation.definition.subexpression.begin
+      push:
+      - meta_scope: meta.subexpression
+      - match: ({{IDENTIFIER}}(?:\s*[./]{{IDENTIFIER}})*) # TODO: match individual parts
+        scope: entity.name.function.helper # variable.function
+        push:
+        - include: -before-tag-end-pop-
+        - include: -subexpression-end-
+        #- include: -named-parameter- # I don’t think this is valid
+        - include: -subexpression- # nested subexpressions
+        - include: -key-value-
+        - include: -string-quoted-double-
+        - include: -string-quoted-single-
+        - include: -data-var-
+        - include: -path-
+        - include: -path-id-
+      - include: -subexpression-end-
+  -subexpression-end-:
+    - match: \)
+      scope: punctuation.definition.subexpression.end
+      pop: true
+
+
+
+  -identifier-one-:
+    - match: ({{IDENTIFIER}})
+      scope: variable.other.readwrite -identifier-one-
+      set:
+      # Dotted paths named `this` are not allowed.
+      - include: -unexpected-dotted-path-named-this-
+      - include: -unexpected-identifier-
+
+      # Subsequent identifiers immediately preceeded by a dot are allowed.
+      - include: -identifier-one-dotted-
+      - include: -identifier-path-literal-dotted-
+      # Slashes are valid separators so go back to considering this a path.
+      - include: -separator-slash-
+      - include: -expect-tag-end-
+    - match: \@
+      scope: bright.bluebird
+    - include: -identifier-path-literal-
+  -identifier-one-dotted-:
+    - match: (\.{{IDENTIFIER}})
+      scope: variable.other.readwrite -identifier-one-dotted-
+      set:
+      # Subsequent identifiers immediately preceeded by a dot are allowed.
+      - include: -identifier-one-dotted-
+      - include: -identifier-path-literal-dotted-
+      # Slashes are valid separators so go back to considering this a path.
+      - include: -separator-slash-
+      - include: -expect-tag-end-
+  -before-identifier-one-pop-:
+    - match: ({{IDENTIFIER}})
+      scope: variable.other.readwrite -identifier-one-
+      set:
+      # Dotted paths named `this` are not allowed.
+      - include: -unexpected-dotted-path-named-this-
+      - include: -unexpected-identifier-
+
+      # Subsequent identifiers immediately preceeded by a dot are allowed.
+      - include: -identifier-one-dotted-
+      - include: -identifier-path-literal-dotted-
+      # Slashes are valid separators so go back to considering this a path.
+      - include: -separator-slash-
+      #- include: -before-tag-end-pop-
+    - match: \@
+      scope: bright.bluebird
+    - include: -identifier-path-literal-
+
+  -identifier-only-:
+    - match: ({{IDENTIFIER}})
+      scope: variable.other.readwrite -identifier-only-
+      set:
+      # Dotted paths named `this` are not allowed.
+      - include: -unexpected-dotted-path-named-this-
+
+      # Subsequent identifiers immediately preceeded by a dot are allowed.
+      - include: -identifier-only-dotted-
+      - include: -identifier-path-literal-dotted-
+      # Slashes are valid separators so go back to considering this a path.
+      - include: -separator-slash-
+      - include: -string-quoted-double-
+      - include: -string-quoted-single-
+      - include: -expect-tag-end-
+    - include: -identifier-path-literal-
+    - match: \@
+      scope: bright.bluebird
+  -identifier-only-dotted-:
+    - match: ((\.?){{IDENTIFIER}})
+      scope: variable.other.readwrite -identifier-only-dotted-
+      # captures:
+      #   2: punctuation.separator
+      set:
+      - include: -named-parameter-
+      - include: -key-value-
+      # Subsequent identifiers immediately preceeded by a dot are allowed.
+      - include: -identifier-only-dotted-
+      - include: -identifier-path-literal-dotted-
+      # Slashes are valid separators so go back to considering this a path.
+      - include: -separator-slash-
+      - include: -string-quoted-double-
+      - include: -string-quoted-single-
+      - include: -expect-tag-end-
+
+    #- include: -identifier-path-literal-dotted-
+
+  -identifier-path-literal-:
+    - match: \[
+      scope: punctuation.definition.path.literal.end
+      set:
+      - meta_scope: meta.path.literal -identifier-path-literal-
+
+      - match: (\d+)
+        scope: constant.numeric
+
+      - match: ([^]]+)
+        scope: variable.other.readwrite
+
+      - match: (])
+        scope: punctuation.definition.path.literal.end
+        set:
+        - include: -separator-slash-
+        - include: -expect-tag-end-
+  -identifier-path-literal-dotted-:
+    - match: (\.)(\[)
+      captures:
+        1: variable.other.readwrite
+        2: punctuation.definition.path.literal.end
+      push:
+      - meta_scope: meta.path.literal -identifier-path-literal-dotted-
+
+      - match: (\d+)
+        scope: constant.numeric
+
+      - match: ([^]]+)
+        scope: variable.other.readwrite
+
+      - match: (])
+        scope: punctuation.definition.path.literal.end
+        pop: true
+
+
+
+  -data-var-:
+    # POP if we just passed a close tag.
+    - include: -after-tag-end-pop-
+    - include: -before-tag-end-pop-
+
+    - match: (\@)(\s*)
+      captures:
+        1: constant.character.data-variable
+        2: meta.path-traversal
+      push:
+      - meta_scope: variable.language.data -data-var- #-data-var--content-
+
+      - match: ^\s*
+
+      # Identifier
+      #- match: (?=\[|{{IDENTIFIER_CHAR}})
+      - match: (?={{IDENTIFIER_CHAR}})
+        push:
+        - include: -data-var-path-id-
+
+      # Path
+      - include: -data-var-path-
+
+      # POP Anything Else
+      - include: -before-unmatched-char-pop-
+
+  -data-var-path-:
+    # POP if we just passed a close tag.
+    - include: -after-tag-end-pop-
+    - include: -before-tag-end-pop-
+    #- include: -before-tag-end-pop-
+
+    # Dot(s)
+    - match: \.\.?(?={{LOOKAHEAD}})
+      #scope: meta.path-traversal -data-var-path-
+      push:
+      - meta_scope: meta.path-traversal -data-var-path--after-
+      #- include: -before-tag-end-pop-
+
+      # Subsequent Slash
+      - include: -data-var-path-slash-
+      # - match: \s*/
+      #   push:
+      #   - meta_scope: bright.red-orange
+      #   - match: \s*/
+      #     scope: invalid.illegal
+      #     pop: true
+      #   - match: \s*\.\.?(?={{LOOKAHEAD}})
+      #     scope: bright.yellow
+      #     pop: true
+      #   - match: (?=\s*\S)
+      #     pop: true
+
+      # Anything Except Slash
+      - match: (?=\s*\S)
+        pop: true
+        # set:
+        # - include: -before-tag-end-pop-
+        # - include: -tag-guts-
+
+  -data-var-path-slash-:
+    # Slash
+    - match: \s*/
+      scope: meta.path-traversal -data-var-path-slash-
+      set:
+      - meta_content_scope: meta.path-traversal -data-var-path-slash--after-
+
+      # Dots (Again)
+      - match: \s*(?=\.\.?)
+        scope: meta.path-traversal -data-var-path-slash--dots- # bridge the gap between `/` and `.`
+        pop: true
+
+      # Identifiers
+      - match: \s*(?=\[|{{IDENTIFIER_CHAR}})
+        set:
+        - include: -data-var-path-id-
+
+      # BAD Subsequent Slash
+      - match: \s*/
+        scope: invalid.illegal.invalid-path
+        pop: true
+
+      # BAD Tag End
+      - match: \s*({{TAG_END}})
+        captures:
+          1: invalid.illegal.expected-context-path
+        pop: true
+
+      - include: -before-unmatched-char-pop-
+
+  -data-var-path-id-:
+    - include: -before-tag-end-pop-
+
+    - match: (?:(first)|(index)|(key)|(last)|(partial-block)|(root)|(this))(?={{SEPARATOR}})
+      captures:
+        1: variable.language.data.keyword.first -data-var-path-id--keyword-
+        2: variable.language.data.keyword.index -data-var-path-id--keyword-
+        3: variable.language.data.keyword.key -data-var-path-id--keyword-
+        4: variable.language.data.keyword.last -data-var-path-id--keyword-
+        5: variable.language.data.keyword.partial-block -data-var-path-id--keyword-
+        6: variable.language.data.keyword.root -data-var-path-id--keyword-
+        7: variable.language.data.keyword.this -data-var-path-id--keyword-
+      set:
+      - meta_scope: -data-var-path-id--this--after-
+      # - match: (?=\s*\.((first)|(index)|(key)|(last)|(root)|(this)))
+      - match: (?=\s*\.this)
+        pop: true
+      - include: -data-var-path-id-after-
+
+    - match: ({{IDENTIFIER}})(?={{SEPARATOR}})
+      scope: variable.other.readwrite.path -data-var-path-id--id-
+      set:
+      - meta_scope: -data-var-path-id--id--after-
+      - include: -data-var-path-id-after-
+
+    - match: \[
+      set:
+      - meta_scope: variable.other.readwrite.path -data-var-path-id--bracketed-
+      - match: \]
+        set:
+        - meta_scope: -data-var-path-id--id-bracketed--after-
+        - include: -data-var-path-id-after-
+
+    - match: ({{IDENTIFIER}}{{NOT_IDENTIFIER_NOT_SEPARATOR}}+[^{{TAG_END_CHAR}}]*)
+      scope: invalid.illegal.invalid-path -path-id-
+
+    - match: ({{NOT_IDENTIFIER_NOT_SPACE}}+[^{{TAG_END_CHAR}}]*)
+      scope: invalid.illegal.invalid-path -path-id-
+
+  -data-var-path-id-after-:
+    # POP if we just passed a close tag.
+    - include: -after-tag-end-pop-
+    - include: -before-tag-end-pop-
+
+    # Subsequent Dotted Identifier
+    - match: \s*\.{{IDENTIFIER}}
+      scope: variable.other.readwrite.path -data-var-path-id-after--dotted-
+
+    # Subsequent Dotted Bracketed Identifier
+    - match: \s*\.\[
+      push:
+      - meta_scope: variable.other.readwrite.path -data-var-path-id-after--bracketed-
+      - match: \]
+        pop: true
+
+    # Subsequent Slash
+    - include: -data-var-path-slash-
+
+    - include: -before-unmatched-char-pop-
+
+
+
+  -string-quoted-double-:
+    - match: (?<=[{\s=]|^)(")
+      scope: punctuation.definition.string.quoted.double
+      push:
+      - meta_scope: string.quoted.double
+      - include: -escape-char- #- include: -before-tag-end-pop-
+      - match: (")
+        scope: punctuation.definition.string.quoted.double
+        pop: true
+
+  -string-quoted-single-:
+    - match: (?<=[{\s=]|^)(')
+      scope: punctuation.definition.string.quoted.single
+      push:
+      - meta_scope: string.quoted.single
+      - include: -escape-char- #- include: -before-tag-end-pop-
+      - match: (')
+        scope: punctuation.definition.string.quoted.single
+        pop: true
+
+  -string-quoted-single-one-:
+    - match: (')
+      scope: punctuation.definition.string.quoted.single
+      push:
+      - meta_scope: string.quoted.single
+      - include: -escape-char- #- include: -before-tag-end-pop-
+      - match: (')
+        scope: punctuation.definition.string.quoted.single
+        set:
+        - include: -expect-tag-end-
+
+  -string-quoted-double-one-:
+    - match: (")
+      scope: punctuation.definition.string.quoted.double
+      push:
+      - meta_scope: string.quoted.double
+      - include: -escape-char- #- include: -before-tag-end-pop-
+      - match: (")
+        scope: punctuation.definition.string.quoted.double
+        set:
+        - include: -expect-tag-end-
+
+
+
+  -expect-this-:
+    - match: (\s*)\b(this)
+      captures:
+        1: meta.path-traversal
+        2: variable.language.this
+      set:
+      - meta_content_scope: meta.path-traversal
+
+      # Unexpected `this`
+      - match: (?=\s*this)
+        set:
+        - meta_content_scope: unexpected-this
+        - include: -expect-tag-end-
+
+      # Special case for `.this` (continue looking for context path slashes and dots)
+      - match: \s*\.(?=this)
+        set:
+        - include: -expect-this-
+
+      # Unexpected dot
+      - match: (?=\s*\.{{NON_IDENTIFIER_CHAR}})
+        set:
+        - meta_scope: unexpected-dot
+        - include: -expect-tag-end-
+
+      - include: -expect-slash-
+      - include: -expect-identifier-dotted-only-
+      - include: -tag-end-
+
+    - include: -tag-end-
+
+  -expect-dot-:
+    - match: \s*\.\.?(?=[/{{TAG_END_CHAR}}])
+      scope: meta.path-traversal
+      set:
+      - meta_content_scope: meta.path-traversal
+
+
+      - include: -unexpected-identifier-
+
+      - include: -expect-slash-
+      - include: -tag-end-
+
+  -expect-slash-:
+    - match: /
+      set:
+      - meta_content_scope: meta.path-traversal -expect-slash-
+
+      # Unexpected slash
+      # - match: (?=\s*/)
+      #   set:
+      #   - meta_scope: unexpected-slash
+      #   - include: -expect-tag-end-
+
+      # `this`
+      - match: (?=\s*this) # Fixes double meta scope issue
+        set:
+        - include: -expect-this-
+
+      # Identifier
+      - match: (?=\s*(\[|{{IDENTIFIER}}))
+        set:
+        # - match: \s*
+        - include: -identifier-one-
+
+      # Dot(s)
+      - match: (?=\s*\.\.?[/{{TAG_END_CHAR}}]) # Fixes double meta scope issue
+        set:
+        - include: -expect-dot-
+
+      # Unexpected tag end
+      - match: \s*({{TAG_END}})
+        captures:
+          1: invalid.illegal.expected-context-path
+        pop: true
+
+      # Non-Identifier Char
+      - match: (?=\s*{{NOT_IDENTIFIER_NOT_SPACE}})
+        set:
+        - include: -expect-tag-end-
+
+      # Unexpected sub-path
+      # - match: (?={{NON_IDENTIFIER_CHAR}})
+      #   set:
+      #   - meta_scope: unexpected-sub-path
+      #   # TODO: Make a separate one of these with the correct error message.
+      #   - include: -expect-tag-end-
+
+      # TODO: Make error message clearer
+      # - include: -expect-tag-end-
+
+
+  -separator-slash-:
+    - match: (?=/[^!"#%&''()*+,./;<=>@\\\]^`{|}~])
+      set:
+      - meta_scope: meta.path-traversal # colors the slash itself
+      - include: -expect-slash-
+
+  -escape-char-:
+    - match: (\\.)
+      scope: constant.character.escape
+
+
+
+  -tag-end-:
+    - match: (?:\s*{{TAG_END}})
+      captures:
+        1: punctuation.definition.tag.template.end
+      # scope: bright.yellow
+      pop: true
+
+  -before-tag-end-pop-:
+    - match: (?=\s*{{TAG_END_PAREN}})
+      pop: true
+
+  -after-tag-end-pop-:
+    - match: (?<=}})
+      pop: true
+
+  -before-unmatched-char-pop-:
+    - match: \s*$
+    - match: (?=\s*\S)
+      pop: true
+
+
+  -expect-tag-end-:
+    - include: -before-tag-end-pop-
+    #- include: -tag-end-
+    - match: ({{NOT_TAG_END}})
+      scope: invalid.illegal.expected-tag-end
+      set:
+      - include: -expect-tag-end-
+
+  -expect-identifier-one-:
+    #- include: -path-
+    - match: (?=['"]|{{IDENTIFIER}})
+      set:
+      - include: -identifier-one-
+      - include: -string-quoted-single-one-
+      - include: -string-quoted-double-one-
+      - include: -tag-end-
+      # push:
+      # - include: -identifier-one-
+      # - include: -string-quoted-single-one-
+      # - include: -string-quoted-double-one-
+      # - include: -tag-end-
+      # - match: ({{NOT_TAG_END}})
+      #   pop: true
+
+  -expect-identifier-dotted-only-:
+    - match: (?=\s*\.{{IDENTIFIER}})
+      set:
+      #- meta_scope: meta.identifier
+
+      # For subsequent `.foo` matches, determine if the dot is followed by a non-identifier char.
+      - match: (?=\.{{NON_IDENTIFIER_CHAR}})
+        set:
+        - include: -expect-tag-end-
+
+      # Slashes are valid separators so go back to considering this a path.
+      - include: -separator-slash-
+
+      # Only `.foo` or the tag end is allowed. Anything else is invalid.
+      # Whenever any character that is not a dot, space or the tag end is matched, mark it -- and
+      # anything following it -- as invalid (until the tag end).
+      - match: (?=[^.{{TAG_END_CHAR}}])
+        set:
+        - meta_scope: invalid-identifier-character
+        - include: -expect-tag-end-
+
+      # Dotted paths named `this` are not allowed.
+      - include: -unexpected-dotted-path-named-this-
+
+      # Match an identifier.
+      - match: \.?{{IDENTIFIER}}
+        scope: variable.other.readwrite -expect-identifier-dotted-only-
+
+      - include: -tag-end-
+
+
+  -unexpected-identifier-:
+    - match: (?={{IDENTIFIER}})
+      set:
+      - meta_scope: unexpected-identifier
+      - include: -expect-tag-end-
+
+  -unexpected-dotted-path-named-this-:
+    - match: \s*
+    # Dotted paths named `this` are not allowed.
+    - match: (?=\.?this)
+      set:
+      - meta_scope: paths-named-this-not-allowed
+      - include: -expect-tag-end-
